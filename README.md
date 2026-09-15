@@ -71,6 +71,41 @@ limits, and expectancy thresholds. Defaults are intentionally conservative
 (paper mode, low leverage caps, small risk-per-trade, tight portfolio
 exposure limits) — see `docs/SECURITY.md` before ever widening them.
 
+## Quick start on your own machine
+
+This needs to run somewhere with real internet access to an exchange (a
+locked-down sandbox/CI container without general outbound network access
+won't work). In order, on a machine that has it:
+
+```bash
+# 1. Install
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+python -m pytest -q                                  # sanity-check the install (62 tests)
+
+# 2. Pull real historical data (public endpoint, no API key needed)
+python scripts/fetch_historical_data.py \
+    --exchange binanceusdm \
+    --symbols BTC/USDT:USDT ETH/USDT:USDT SOL/USDT:USDT \
+    --timeframe 1m --days 30 --out-dir data/historical
+
+# 3. Backtest against it
+python -m tradingbot.main backtest --data-dir data/historical --starting-equity 10000
+
+# 4. Paper trade against live data (still no API key needed for this)
+python -m tradingbot.main paper
+
+# 5. Only once you've reviewed paper results: add real (read+trade-only) keys to
+#    .env, flip config.yaml to sandbox/testnet, then eventually to mode: live
+cp .env.example .env
+python -m tradingbot.main live --i-understand-live-risk   # requires mode: live in config too
+```
+
+Step 2's output filenames (`btc.csv`, `eth.csv`, ...) are what step 3 turns
+back into unified symbols (`BTC/USDT:USDT`) — see
+`scripts/fetch_historical_data.py` for details and pagination/rate-limit
+notes.
+
 ## Running the test suite
 
 ```bash
@@ -87,7 +122,9 @@ trades opened before the truncation point).
 ## Backtesting
 
 The backtester reads local CSV history (one file per symbol:
-`timestamp,open,high,low,close,volume`, one row per 1-minute bar):
+`timestamp,open,high,low,close,volume`, one row per 1-minute bar).
+`scripts/fetch_historical_data.py` downloads real data in this exact format
+from any ccxt-supported exchange's public API (no key required):
 
 ```bash
 python -m tradingbot.main backtest --data-dir ./data/historical --starting-equity 10000
