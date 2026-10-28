@@ -10,6 +10,7 @@ small-cap listing that just cleared the universe filters.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import time
 
@@ -93,7 +94,15 @@ class Scanner:
             return None
 
         now_ms = int(time.time() * 1000)
-        candle_issues = check_candles(symbol, entry_tf, timeframe_seconds=60, now_ms=now_ms)
+        # Use closed candles only: the exchange's last row is still forming, which
+        # both disagrees with backtests (closed bars) and made every symbol look
+        # 'stale' (its open time is up to 60s old by definition).
+        entry_tf = [c for c in entry_tf if c.exchange_ts_ms + 60_000 <= now_ms]
+        # Freshness is measured from bar open: a just-closed bar is up to 120s old.
+        candle_issues = check_candles(
+            symbol, entry_tf, timeframe_seconds=60, now_ms=now_ms,
+            max_staleness_seconds=120 + self.config.universe.max_price_staleness_seconds,
+        )
         book_issues = check_orderbook(symbol, book, now_ms=now_ms)
         self.repository.log_data_quality_events(candle_issues + book_issues)
         if has_critical(candle_issues) or has_critical(book_issues):
@@ -204,7 +213,7 @@ class Scanner:
                 take_profit_json=[{"r": tp.r_multiple, "f": tp.fraction} for tp in signal.take_profit_levels],
                 qty=size.qty, notional=size.notional, leverage=leverage_decision.leverage, margin_used=size.margin_required,
                 estimated_liquidation_price=leverage_decision.liquidation_price, market_regime=snapshot.regime.trend.value,
-                signal_score=score.composite_score, factor_scores_json=score.components.__dict__,
+                signal_score=score.composite_score, factor_scores_json=dataclasses.asdict(score.components),
                 confidence=signal.confidence, expected_value_bps=expectancy.expected_value_bps,
                 expected_holding_seconds=signal.max_holding_seconds, mode=self.mode,
             )
@@ -286,7 +295,11 @@ class Scanner:
 
         async def bound_run(entry) -> None:
             async with semaphore:
-                await self.run_cycle(entry.symbol, entry.spec)
+                try:
+                    await self.run_cycle(entry.symbol, entry.spec)
+                except Exception as exc:  # noqa: BLE001 - one symbol's failure must not stop the bot
+                    logger.exception("run_cycle_failed %s", entry.symbol)
+                    self.repository.log_risk_event("run_cycle_failed", f"{entry.symbol}: {exc!r}")
 
         await asyncio.gather(*(bound_run(e) for e in eligible))
 
