@@ -35,8 +35,14 @@ class ForwardTable:
     decision_ts: np.ndarray
     entry_ts: np.ndarray
     exit_ts: np.ndarray
-    gross_long: np.ndarray     # simple return of a long, NaN when either price is missing
+    gross_long: np.ndarray     # simple return of a long, NaN when either price is missing / not filled
     funding_long: np.ndarray   # sum of funding rates a long pays over the holding window
+    entry: str = "taker"       # "taker" or "limit" (maker entry, taker exit)
+    window_min: int = 0        # how long an unfilled limit order rests before cancel
+    short_view: "ForwardTable | None" = None  # limit entries fill at different times per side
+
+    def for_side(self, side: float) -> "ForwardTable":
+        return self.short_view if side < 0 and self.short_view is not None else self
 
 
 def forward_table(sd: SymbolData, decision_ts: np.ndarray, horizon_min: int, delay_min: int = 1) -> ForwardTable:
@@ -53,24 +59,81 @@ def forward_table(sd: SymbolData, decision_ts: np.ndarray, horizon_min: int, del
     return ForwardTable(sd.symbol, horizon_min, delay_min, decision_ts, entry_ts, exit_ts, gross, f_exit - f_entry)
 
 
+def _funding_between(sd: SymbolData, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    fts = sd.funding["ts"].to_numpy()
+    cum = np.concatenate([[0.0], np.cumsum(sd.funding["funding_rate"].to_numpy())])
+    return cum[np.searchsorted(fts, b, side="right")] - cum[np.searchsorted(fts, a, side="right")]
+
+
+def limit_forward_table(sd: SymbolData, decision_ts: np.ndarray, horizon_min: int, offset_bps: float,
+                        window_min: int, delay_min: int = 1) -> ForwardTable:
+    """Passive entry: at decision+delay a limit order rests `offset_bps` away
+    from the decision close (below for longs, above for shorts) for
+    `window_min` minutes, then is cancelled.
+
+    Fill model (pessimistic on purpose): filled only when a 1m bar trades
+    strictly *through* the limit (low < limit for a buy), never on a touch,
+    since a touch says nothing about our queue position. The fill is assumed at
+    the limit price at that bar's close time. Because fills happen exactly when
+    price moves against the order, adverse selection is in the P&L by
+    construction. Exit is a taker order at fill + horizon."""
+    m1 = sd.m1
+    idx = m1.index.to_numpy()
+    lo, hi, cl = m1["low"].to_numpy(), m1["high"].to_numpy(), m1["close"].to_numpy()
+    close_map = m1["close"]
+    ref = close_map.reindex(decision_ts).to_numpy()
+    pos0 = np.searchsorted(idx, decision_ts + delay_min * MIN_MS, side="left")
+    views = {}
+    for side in (1.0, -1.0):
+        limit = ref * (1 - side * offset_bps / 1e4)
+        fill_pos = np.full(len(decision_ts), -1)
+        for k in range(1, window_min + 1):
+            p = pos0 + k
+            ok = (p < len(idx)) & (fill_pos < 0)
+            pc = np.minimum(p, len(idx) - 1)
+            # the bar must be exactly k minutes after the order went live (no gaps)
+            contiguous = idx[pc] == decision_ts + (delay_min + k) * MIN_MS
+            through = (lo[pc] < limit) if side > 0 else (hi[pc] > limit)
+            hit = ok & contiguous & through & np.isfinite(limit)
+            fill_pos[hit] = pc[hit]
+        filled = fill_pos >= 0
+        entry_ts = np.where(filled, idx[np.maximum(fill_pos, 0)], decision_ts + delay_min * MIN_MS)
+        exit_ts = entry_ts + horizon_min * MIN_MS
+        px = close_map.reindex(exit_ts).to_numpy()
+        gross = np.where(filled, px / limit - 1.0, np.nan)
+        views[side] = ForwardTable(sd.symbol, horizon_min, delay_min, decision_ts, entry_ts, exit_ts, gross,
+                                   _funding_between(sd, entry_ts, exit_ts), entry="limit",
+                                   window_min=window_min)
+    long_view = views[1.0]
+    long_view.short_view = views[-1.0]
+    return long_view
+
+
 def simulate_trades(signal: np.ndarray, ft: ForwardTable, cost: CostModel, start_ms: int, end_ms: int,
                     sd: SymbolData | None = None) -> pd.DataFrame:
     """`signal` is aligned with `ft.decision_ts` (values -1, 0, +1; NaN = 0).
     Trades must both open and close inside [start_ms, end_ms)."""
     sig = np.nan_to_num(np.asarray(signal, dtype=float))
-    cand = np.where((sig != 0) & (ft.decision_ts >= start_ms) & (ft.exit_ts < end_ms) & np.isfinite(ft.gross_long))[0]
+    cand = np.where((sig != 0) & (ft.decision_ts >= start_ms))[0]
     rows = []
     next_free = -1
-    rt = cost.round_trip_bps(ft.symbol)
+    rt = cost.round_trip_bps(ft.symbol, ft.entry)
     for i in cand:
         if ft.decision_ts[i] < next_free:
             continue
         side = float(np.sign(sig[i]))
-        gross_bps = side * ft.gross_long[i] * 1e4
-        fund_bps = side * ft.funding_long[i] * 1e4
-        rows.append((ft.symbol, int(ft.decision_ts[i]), int(ft.entry_ts[i]), int(ft.exit_ts[i]), side,
+        v = ft.for_side(side)
+        if not np.isfinite(v.gross_long[i]):
+            if v.entry == "limit":  # unfilled order blocked the symbol until it was cancelled
+                next_free = v.decision_ts[i] + (v.delay_min + v.window_min) * MIN_MS
+            continue
+        if v.exit_ts[i] >= end_ms:
+            continue
+        gross_bps = side * v.gross_long[i] * 1e4
+        fund_bps = side * v.funding_long[i] * 1e4
+        rows.append((ft.symbol, int(v.decision_ts[i]), int(v.entry_ts[i]), int(v.exit_ts[i]), side,
                      gross_bps, rt, fund_bps, gross_bps - rt - fund_bps))
-        next_free = ft.exit_ts[i]
+        next_free = v.exit_ts[i]
     tr = pd.DataFrame(rows, columns=["symbol", "decision_ts", "entry_ts", "exit_ts", "side", "gross_bps",
                                      "cost_bps", "funding_bps", "net_bps"])
     if sd is not None and len(tr):
@@ -110,10 +173,10 @@ def random_timing_null(trades: pd.DataFrame, tables: dict[str, ForwardTable], co
     total = np.zeros(n_sims)
     n_total = 0
     for sym, g in trades.groupby("symbol"):
-        ft = tables[sym]
-        valid = np.where((ft.decision_ts >= start_ms) & (ft.exit_ts < end_ms) & np.isfinite(ft.gross_long))[0]
-        rt = cost.round_trip_bps(sym)
+        rt = cost.round_trip_bps(sym, tables[sym].entry)
         for side in (1.0, -1.0):
+            ft = tables[sym].for_side(side)
+            valid = np.where((ft.decision_ts >= start_ms) & (ft.exit_ts < end_ms) & np.isfinite(ft.gross_long))[0]
             k = int((g["side"] == side).sum())
             if k == 0 or len(valid) == 0:
                 continue

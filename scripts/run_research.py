@@ -14,7 +14,7 @@ from pathlib import Path
 from tradingbot.research.costs import CostModel
 from tradingbot.research.dataset import load_symbol
 from tradingbot.research.features import add_reference_features, build_features
-from tradingbot.research.hypotheses import HYPOTHESES
+from tradingbot.research.hypotheses import HYPOTHESES, ROUND2
 from tradingbot.research.protocol import Context, Rules, Splits, run_protocol
 from tradingbot.research.registry import Registry, dataset_fingerprint, git_commit
 
@@ -74,6 +74,7 @@ def main() -> None:
     ap.add_argument("--out", default="research")
     ap.add_argument("--symbols", nargs="+", default=["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"])
     ap.add_argument("--only", nargs="*", help="hypothesis ids to run (default all)")
+    ap.add_argument("--round", type=int, default=1, help="1 = Milestone-1 family, 2 = round-2 family")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -94,7 +95,8 @@ def main() -> None:
     for q in bad:
         print(f"DATA QUALITY WARNING: {q['name']} coverage={q['coverage']:.5f} gaps={q['gap_list'][:3]}")
 
-    hyps = [h for h in HYPOTHESES if not args.only or h.hid in args.only]
+    pool = HYPOTHESES if args.round == 1 else ROUND2
+    hyps = [h for h in pool if not args.only or h.hid in args.only]
     cost, splits, rules = CostModel(), Splits(), Rules()
     ctx = Context(data, feats, cost)
     records = run_protocol(hyps, ctx, splits, rules)
@@ -107,11 +109,11 @@ def main() -> None:
         "family_size": records[0].get("family_size") if records else 0, "symbols": args.symbols,
     }
     reg = Registry(out / "registry.jsonl")
-    run_id = f"m1-{meta['generated_at']}"
+    run_id = f"r{args.round}-{meta['generated_at']}"
     for r in records:
         reg.append({"run_id": run_id, **meta, **r})
     (out / "data_quality.json").write_text(json.dumps(quality, indent=1, default=str))
-    write_report(out / "M1_RESULTS.md", records, quality, meta)
+    write_report(out / ("M1_RESULTS.md" if args.round == 1 else f"R{args.round}_RESULTS.md"), records, quality, meta)
     print(f"done in {time.time() - t:.0f}s; verdicts:")
     for r in records:
         print(f"  {r['hypothesis']} {r['params']} -> {r['verdict']} {r.get('reasons', '')}")

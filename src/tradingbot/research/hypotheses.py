@@ -245,3 +245,65 @@ def by_id(hid: str) -> Hypothesis:
         if h.hid == hid:
             return h
     raise KeyError(hid)
+
+
+# --- Round 2 (registered 2026-10-28, after Milestone-1 results) -------------
+# These were *informed by* round-1 discovery results (which components showed
+# gross timing information). Their discovery-window statistics are therefore
+# NOT independent evidence; the untouched validation and test windows are.
+
+def _mr_composite(f: pd.DataFrame, p: dict) -> pd.Series:
+    a = (-f["prem_1h_z"]).clip(-5, 5)
+    b = (-f["ret_4h_z"]).clip(-5, 5)
+    c = (-f["ret_1h_z"]).clip(-5, 5).where(f["doi_1h_z"] < -1.0, 0.0)
+    score = (a.fillna(0) + b.fillna(0) + c.fillna(0)) / 3.0
+    score = score.where(f["prem_1h_z"].notna() & f["ret_4h_z"].notna())
+    return _sig(score > p["k"], score < -p["k"])
+
+
+def _h07_4h(f: pd.DataFrame, p: dict) -> pd.Series:
+    return _reversal(f, {"window": "4h", "k": 3.0, "direction": 1})
+
+
+def _h02_35(f: pd.DataFrame, p: dict) -> pd.Series:
+    return _premium(f, {"k": 3.5, "direction": 1})
+
+
+_LIMIT = {"entry": "limit", "offset_bps": 5.0, "window_min": 15}
+
+ROUND2: list[Hypothesis] = [
+    Hypothesis(
+        hid="H09", name="mean_reversion_composite",
+        mechanism="H02 (premium), H07 (4h move) and H03 (price move on falling OI) each carried 3-14 bps of "
+                  "gross timing information in the same direction (fade liquidity-driven moves). If they are "
+                  "partly independent, an equal-weight average should have a larger edge per trade than any "
+                  "single component, possibly enough to clear costs.",
+        competing="The components are the same event seen three ways (a sharp move moves premium and OI too); "
+                  "averaging adds nothing and the edge stays below costs.",
+        data_required=["perp 1m klines", "premium index", "5m open interest"],
+        signal_definition="score = mean(clip(-prem_1h_z), clip(-ret_4h_z), clip(-ret_1h_z)*1[doi_1h_z<-1]); "
+                          "long if score>k, short if score<-k. Fixed equal weights, not fitted.",
+        works_when="Liquidity-driven overshoots in two-way markets.",
+        fails_when="Trend days / repricing events (large MAE expected).",
+        why_not_arbitraged="Requires warehousing risk into violent moves.",
+        holding="4h", refutation="Validation net <= 0 or not better than random timing.",
+        signal_fn=_mr_composite,
+        grid={"k": [1.5, 2.0], "horizon_min": [240], "entry": ["taker", "limit"],
+              "offset_bps": [5.0], "window_min": [15]},
+    ),
+    Hypothesis(
+        hid="H10", name="passive_entry_reversal",
+        mechanism="The best round-1 signals are mean-reversion: a liquidity *taker* pays the spread to the side "
+                  "that later profits. Entering passively (limit order 5 bps through the market, 15 min) "
+                  "replaces a 6-7 bp taker entry with a 2 bp maker fee and a better price.",
+        competing="Passive orders on reversal signals fill mainly when the move continues (adverse selection), "
+                  "so the filled subset loses more than the fee saved.",
+        data_required=["perp 1m klines (high/low for trade-through fills)"],
+        signal_definition="H07 (fade 4h move >3σ) or H02 (fade premium z>3.5) with limit entry, taker exit.",
+        works_when="Moves extend briefly before reverting.", fails_when="Fast trend continuation.",
+        why_not_arbitraged="Market makers do this at much shorter horizons; at 4h it carries inventory risk.",
+        holding="4h", refutation="Filled trades net <= 0 or not better than random filled limit orders.",
+        signal_fn=lambda f, p: _h07_4h(f, p) if p["base"] == "H07" else _h02_35(f, p),
+        grid={"base": ["H07", "H02"], "horizon_min": [240], **{k: [v] for k, v in _LIMIT.items()}},
+    ),
+]

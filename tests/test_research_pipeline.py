@@ -202,3 +202,44 @@ def test_registry_is_append_only(tmp_path):
     reg.append({"hypothesis": "H02", "verdict": "inconclusive"})
     rows = reg.read()
     assert [r["hypothesis"] for r in rows] == ["H01", "H02"] and rows[0]["x"] == 1.5
+
+
+# --- limit-order entry model ---------------------------------------------------
+
+def _flat_symbol(n: int, lows: dict[int, float], highs: dict[int, float] | None = None) -> SymbolData:
+    sd = make_symbol(n)
+    m1 = sd.m1.copy()
+    m1[["open", "high", "low", "close"]] = 100.0
+    for i, v in lows.items():
+        m1.iloc[i, m1.columns.get_loc("low")] = v
+    for i, v in (highs or {}).items():
+        m1.iloc[i, m1.columns.get_loc("high")] = v
+    return SymbolData(sd.symbol, m1, sd.funding.assign(funding_rate=0.0), None, [])
+
+
+def test_limit_touch_does_not_fill_but_trade_through_does():
+    from tradingbot.research.evaluate import limit_forward_table
+    dec_i = 100
+    # decision at bar 100; order live from bar 101; limit = 100 * (1 - 10bps) = 99.9
+    touch = _flat_symbol(500, {103: 99.9})
+    through = _flat_symbol(500, {103: 99.89})
+    dec = np.array([touch.m1.index[dec_i]])
+    t1 = limit_forward_table(touch, dec, horizon_min=60, offset_bps=10, window_min=10)
+    t2 = limit_forward_table(through, dec, horizon_min=60, offset_bps=10, window_min=10)
+    assert np.isnan(t1.gross_long[0])
+    assert t2.entry_ts[0] == through.m1.index[103]
+    assert t2.gross_long[0] == pytest.approx(100.0 / 99.9 - 1)
+
+
+def test_limit_fill_outside_window_is_ignored_and_short_side_uses_highs():
+    from tradingbot.research.evaluate import limit_forward_table
+    sd = _flat_symbol(500, {130: 99.0}, {104: 100.2})
+    dec = np.array([sd.m1.index[100]])
+    ft = limit_forward_table(sd, dec, horizon_min=60, offset_bps=10, window_min=10)
+    assert np.isnan(ft.gross_long[0])                       # low at bar 130 is past the window
+    assert ft.for_side(-1).entry_ts[0] == sd.m1.index[104]  # short limit at 100.1 filled by high 100.2
+
+
+def test_limit_round_trip_cost_is_maker_in_taker_out():
+    c = CostModel()
+    assert c.round_trip_bps("BTCUSDT", "limit") == pytest.approx(2.0 + 5.0 + 1.0)

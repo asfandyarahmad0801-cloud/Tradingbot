@@ -35,7 +35,12 @@ class CostModel:
         impact = self.impact_bps.get(symbol, self.default_impact_bps)
         return (self.taker_fee_bps + impact) * self.stress_multiplier
 
-    def round_trip_bps(self, symbol: str) -> float:
+    def round_trip_bps(self, symbol: str, entry: str = "taker") -> float:
+        """`entry="limit"`: maker fee in, taker fee + impact out. Spread/impact on
+        the entry is not charged because the fill price *is* the limit price."""
+        if entry == "limit" and self.scenario != "maker":
+            return (self.maker_fee_bps + self.taker_fee_bps
+                    + self.impact_bps.get(symbol, self.default_impact_bps)) * self.stress_multiplier
         return 2.0 * self.per_side_bps(symbol)
 
     def stressed(self, mult: float) -> "CostModel":

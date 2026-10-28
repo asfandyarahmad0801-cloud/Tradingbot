@@ -21,7 +21,8 @@ import pandas as pd
 
 from tradingbot.research.costs import CostModel
 from tradingbot.research.dataset import SymbolData
-from tradingbot.research.evaluate import ForwardTable, forward_table, random_timing_null, simulate_trades, summarize
+from tradingbot.research.evaluate import (ForwardTable, forward_table, limit_forward_table, random_timing_null,
+                                         simulate_trades, summarize)
 from tradingbot.research.hypotheses import Hypothesis
 from tradingbot.research.stats import bh_fdr
 
@@ -59,13 +60,18 @@ class Context:
     features: dict[str, pd.DataFrame]
     cost: CostModel = field(default_factory=CostModel)
     delay_min: int = 1
-    _ft: dict[tuple[str, int], ForwardTable] = field(default_factory=dict)
+    _ft: dict[tuple, ForwardTable] = field(default_factory=dict)
 
-    def table(self, symbol: str, horizon: int) -> ForwardTable:
-        key = (symbol, horizon)
+    def table(self, symbol: str, horizon: int, entry: str = "taker", offset_bps: float = 0.0,
+              window_min: int = 0) -> ForwardTable:
+        key = (symbol, horizon, entry, offset_bps, window_min)
         if key not in self._ft:
             idx = self.features[symbol].index.to_numpy(dtype="int64")
-            self._ft[key] = forward_table(self.data[symbol], idx, horizon, self.delay_min)
+            if entry == "limit":
+                self._ft[key] = limit_forward_table(self.data[symbol], idx, horizon, offset_bps, window_min,
+                                                    self.delay_min)
+            else:
+                self._ft[key] = forward_table(self.data[symbol], idx, horizon, self.delay_min)
         return self._ft[key]
 
 
@@ -83,7 +89,8 @@ def run_variant(h: Hypothesis, params: dict, ctx: Context, start: int, end: int,
     for s in eligible_symbols(h, ctx):
         f = ctx.features[s]
         sig = h.signal_fn(f, params).to_numpy(dtype=float)
-        ft = ctx.table(s, horizon)
+        ft = ctx.table(s, horizon, params.get("entry", "taker"), float(params.get("offset_bps", 0.0)),
+                       int(params.get("window_min", 0)))
         tables[s] = ft
         trades.append(simulate_trades(sig, ft, cost, start, end, ctx.data[s]))
     tr = pd.concat([t for t in trades if len(t)], ignore_index=True) if any(len(t) for t in trades) \
