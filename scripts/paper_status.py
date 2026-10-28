@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 def ts(ms: int | None) -> str:
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%H:%M:%S") if ms else "-"
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%m-%d %H:%M") if ms else "-"
 
 
 def main() -> None:
