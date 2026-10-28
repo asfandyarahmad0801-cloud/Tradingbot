@@ -37,6 +37,30 @@ class PortfolioState:
     trades_today_by_symbol: dict[str, int] = field(default_factory=dict)
     last_exit_ts_ms_by_symbol: dict[str, int] = field(default_factory=dict)
     last_loss_ts_ms_by_symbol: dict[str, int] = field(default_factory=dict)
+    starting_equity: float | None = None
+    _day: int = -1
+    _week: int = -1
+    _day_start_equity: float = 0.0
+    _week_start_equity: float = 0.0
+
+    def record_realized(self, pnl_quote: float, now_ms: int) -> None:
+        """Book a closed trade's P&L and keep the daily/weekly loss figures
+        (which the risk engine enforces) current. Day/week boundaries are UTC."""
+        self.roll_periods(now_ms)
+        self.equity += pnl_quote
+        self.daily_pnl_pct = (self.equity / self._day_start_equity - 1) * 100 if self._day_start_equity > 0 else 0.0
+        self.weekly_pnl_pct = (self.equity / self._week_start_equity - 1) * 100 if self._week_start_equity > 0 else 0.0
+
+    def roll_periods(self, now_ms: int) -> None:
+        if self.starting_equity is None:
+            self.starting_equity = self.equity
+        day = now_ms // 86_400_000
+        week = (day + 3) // 7  # weeks start Monday (1970-01-01 was a Thursday)
+        if day != self._day:
+            self._day, self._day_start_equity, self.daily_pnl_pct = day, self.equity, 0.0
+            self.trades_today_by_symbol.clear()
+        if week != self._week:
+            self._week, self._week_start_equity, self.weekly_pnl_pct = week, self.equity, 0.0
 
     def gross_notional(self) -> float:
         return sum(p.notional for p in self.open_positions)
@@ -107,6 +131,11 @@ class RiskEngine:
             reasons.append(f"daily_loss_limit_breached:{portfolio.daily_pnl_pct:.2f}%<=-{cfg.max_daily_loss_pct}%")
         if portfolio.weekly_pnl_pct <= -cfg.max_weekly_loss_pct:
             reasons.append(f"weekly_loss_limit_breached:{portfolio.weekly_pnl_pct:.2f}%<=-{cfg.max_weekly_loss_pct}%")
+        if (cfg.max_total_loss_usd is not None and portfolio.starting_equity is not None
+                and portfolio.equity <= portfolio.starting_equity - cfg.max_total_loss_usd):
+            kill_switch.halt_new_positions = True  # latches: needs an operator to clear
+            reasons.append(f"max_total_loss_reached:{portfolio.starting_equity - portfolio.equity:.2f}usd"
+                           f">={cfg.max_total_loss_usd}usd")
         if portfolio.consecutive_losses >= cfg.max_consecutive_losses:
             reasons.append(f"max_consecutive_losses_reached:{portfolio.consecutive_losses}")
 

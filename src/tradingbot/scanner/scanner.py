@@ -23,7 +23,8 @@ from tradingbot.features.pump_dump import compute_abnormal_move_score
 from tradingbot.regime.classifier import RegimeSnapshot, classify_regime
 from tradingbot.risk.leverage import select_leverage
 from tradingbot.risk.limits import KillSwitch, OpenPositionInfo, PortfolioState, RiskEngine
-from tradingbot.risk.position_sizing import compute_position_size
+from tradingbot.learning.setup_memory import MemoryConfig, SetupMemory
+from tradingbot.risk.position_sizing import compute_fixed_margin_size, compute_position_size
 from tradingbot.setups.base import MarketSnapshot, Setup
 from tradingbot.signal_engine.explanation import Decision, render_explanation
 from tradingbot.signal_engine.expectancy import compute_expectancy, estimate_costs, win_probability_from_confidence
@@ -59,9 +60,17 @@ class Scanner:
         self._btc_regime: RegimeSnapshot | None = None
         self._open_trade_ids: dict[str, int] = {}
         self._open_entry_ts: dict[str, int] = {}
+        self._open_meta: dict[str, dict] = {}
+        lc = config.learning
+        self.memory = SetupMemory(
+            MemoryConfig(lc.loss_streak_for_cooldown, lc.cooldown_minutes, lc.min_trades_to_judge,
+                         lc.ban_t_threshold, lc.judge_window),
+            lc.memory_path,
+        ) if lc.enabled else None
 
     async def refresh_portfolio_equity(self) -> None:
         self.portfolio.equity = await self.broker.get_balance()
+        self.portfolio.roll_periods(int(time.time() * 1000))
 
     async def refresh_btc_regime(self) -> None:
         try:
@@ -123,10 +132,17 @@ class Scanner:
             return
 
         cfg = self.config
+        regime_key = f"{snapshot.regime.trend.value}|{snapshot.regime.volatility.value}"
         for setup in self.setups:
             signal = setup.evaluate(snapshot)
             if signal is None:
                 continue
+            if self.memory is not None:
+                ok, why = self.memory.is_allowed(setup.name, symbol, regime_key, snapshot.as_of_ms)
+                if not ok:
+                    self.repository.log_decision(symbol, "rejected", why, setup.name)
+                    logger.info("memory_block %s %s: %s", symbol, setup.name, why)
+                    continue
 
             score = score_signal(snapshot, signal, cfg.risk.max_spread_bps, cfg.universe.min_orderbook_depth_usd_within_10bps)
             win_prob = win_probability_from_confidence(signal.confidence)
@@ -142,18 +158,29 @@ class Scanner:
                 self.repository.log_decision(symbol, "no_trade", [f"expectancy_fail:ev={expectancy.expected_value_bps:.1f}bps"], setup.name)
                 continue
 
+            fixed = cfg.risk.sizing_mode == "fixed_margin"
             leverage_decision = select_leverage(
                 signal.entry_price, signal.stop_price, signal.direction, spec,
-                cfg.risk.max_position_leverage, cfg.risk.min_liquidation_distance_multiple_of_stop,
+                cfg.risk.fixed_leverage if fixed else cfg.risk.max_position_leverage,
+                cfg.risk.min_liquidation_distance_multiple_of_stop,
             )
-            if leverage_decision.rejected:
-                self.repository.log_decision(symbol, "rejected", list(leverage_decision.reasons), setup.name)
+            if leverage_decision.rejected or (fixed and leverage_decision.leverage < cfg.risk.fixed_leverage):
+                why = list(leverage_decision.reasons) or [
+                    f"fixed_leverage_{cfg.risk.fixed_leverage}x_puts_liquidation_too_close_to_stop"]
+                self.repository.log_decision(symbol, "rejected", why, setup.name)
                 continue
 
-            size = compute_position_size(
-                self.portfolio.equity, cfg.risk.risk_per_trade_pct, signal.entry_price, signal.stop_price,
-                leverage_decision.leverage, spec, max_notional_usd=self.portfolio.equity * cfg.risk.max_effective_account_leverage,
-            )
+            if fixed:
+                free = self.portfolio.equity - sum(p.notional / p.leverage for p in self.portfolio.open_positions)
+                size = compute_fixed_margin_size(
+                    cfg.risk.fixed_margin_usd, cfg.risk.fixed_leverage, signal.entry_price, signal.stop_price, spec,
+                    free, costs.total_bps, cfg.risk.max_loss_per_trade_usd,
+                )
+            else:
+                size = compute_position_size(
+                    self.portfolio.equity, cfg.risk.risk_per_trade_pct, signal.entry_price, signal.stop_price,
+                    leverage_decision.leverage, spec, max_notional_usd=self.portfolio.equity * cfg.risk.max_effective_account_leverage,
+                )
             if size.rejected:
                 self.repository.log_decision(symbol, "rejected", list(size.reasons), setup.name)
                 continue
@@ -189,6 +216,8 @@ class Scanner:
                 self.portfolio.trades_today_by_symbol[symbol] = self.portfolio.trades_today_by_symbol.get(symbol, 0) + 1
                 self._open_trade_ids[symbol] = trade_id
                 self._open_entry_ts[symbol] = now_ms
+                self._open_meta[symbol] = {"setup": setup.name, "regime": regime_key, "side": signal.direction,
+                                           "entry": signal.entry_price, "qty": size.qty, "notional": size.notional}
             else:
                 self.repository.log_risk_event("unprotected_position_emergency_exit", symbol)
             break  # one signal per symbol per cycle
@@ -218,6 +247,19 @@ class Scanner:
                     trade_id, exit_reason=exit_reason, actual_holding_seconds=(now_ms - entry_ts) / 1000.0,
                 )
             self.portfolio.last_exit_ts_ms_by_symbol[symbol] = now_ms
+            meta = self._open_meta.pop(symbol, None)
+            if meta is not None and order_result.avg_fill_price:
+                sign = 1.0 if meta["side"] == Side.LONG else -1.0
+                fees = meta["notional"] * 2 * 5.0 / 10_000  # taker in + taker out
+                pnl = sign * meta["qty"] * (order_result.avg_fill_price - meta["entry"]) - fees
+                net_bps = pnl / meta["notional"] * 10_000
+                self.portfolio.record_realized(pnl, now_ms)
+                logger.info("trade_closed %s %s %s pnl=%.4f usd (%.1f bps) equity=%.2f", symbol, meta["setup"],
+                            exit_reason, pnl, net_bps, self.portfolio.equity)
+                if self.memory is not None:
+                    for lesson in self.memory.record(meta["setup"], symbol, meta["regime"], net_bps, now_ms):
+                        logger.warning("memory_lesson %s", lesson)
+                        self.repository.log_risk_event("setup_memory", lesson)
             if exit_reason == "stop_loss":
                 self.portfolio.last_loss_ts_ms_by_symbol[symbol] = now_ms
                 self.portfolio.consecutive_losses += 1

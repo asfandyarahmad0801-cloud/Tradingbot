@@ -13,6 +13,8 @@ places orders exactly as instructed by the execution layer.
 """
 from __future__ import annotations
 
+import os
+
 import time
 from typing import Any
 
@@ -48,15 +50,22 @@ class ExchangeClient:
         rate_limit_ms: int = 50,
     ) -> None:
         exchange_cls = getattr(ccxt_async, exchange_id)
-        self.exchange: ccxt_async.Exchange = exchange_cls(
-            {
-                "apiKey": api_key or None,
-                "secret": api_secret or None,
-                "enableRateLimit": True,
-                "rateLimit": rate_limit_ms,
-                "options": {"defaultType": "swap"},
-            }
-        )
+        params: dict[str, Any] = {
+            "apiKey": api_key or None,
+            "secret": api_secret or None,
+            "enableRateLimit": True,
+            "rateLimit": rate_limit_ms,
+            # only perpetual swaps are traded; skip loading spot/option catalogues
+            "options": {"defaultType": "swap", "fetchMarkets": {"types": ["swap"]}},
+        }
+        # Honour HTTP(S)_PROXY and a custom CA bundle when the host requires them
+        # (aiohttp ignores proxy env vars unless trust_env is set).
+        if os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy"):
+            params["aiohttp_trust_env"] = True
+        ca = os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE")
+        if ca:
+            params["cafile"] = ca
+        self.exchange: ccxt_async.Exchange = exchange_cls(params)
         if sandbox:
             try:
                 self.exchange.set_sandbox_mode(True)
@@ -139,11 +148,19 @@ class ExchangeClient:
             )
         return specs
 
+    def _contract_size(self, symbol: str) -> float:
+        """Exchanges such as OKX quote amounts in contracts; convert to base units
+        so depth/volume mean the same thing on every venue."""
+        m = (self.exchange.markets or {}).get(symbol) or {}
+        return float(m.get("contractSize") or 1.0)
+
     async def fetch_ohlcv(self, symbol: str, timeframe: str, limit: int = 200, since: int | None = None) -> list[Candle]:
         raw = await self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit, since=since)
         local_ts = _now_ms()
         candles = []
+        cs = self._contract_size(symbol)
         for ts, o, h, l, c, v in raw:
+            v = float(v) * cs
             candles.append(
                 Candle(
                     symbol=symbol,
@@ -164,8 +181,10 @@ class ExchangeClient:
         raw = await self.exchange.fetch_order_book(symbol, limit=depth)
         local_ts = _now_ms()
         exch_ts = raw.get("timestamp") or local_ts
-        bids = tuple(OrderBookLevel(price=float(p), qty=float(q)) for p, q in raw.get("bids", []))
-        asks = tuple(OrderBookLevel(price=float(p), qty=float(q)) for p, q in raw.get("asks", []))
+        cs = self._contract_size(symbol)
+        # levels may carry extra fields (OKX: price, qty, liquidated orders, order count)
+        bids = tuple(OrderBookLevel(price=float(lv[0]), qty=float(lv[1]) * cs) for lv in raw.get("bids", []))
+        asks = tuple(OrderBookLevel(price=float(lv[0]), qty=float(lv[1]) * cs) for lv in raw.get("asks", []))
         return OrderBookSnapshot(
             symbol=symbol,
             exchange_ts_ms=int(exch_ts),
@@ -178,6 +197,7 @@ class ExchangeClient:
         raw = await self.exchange.fetch_trades(symbol, limit=limit, since=since)
         local_ts = _now_ms()
         trades = []
+        cs = self._contract_size(symbol)
         for t in raw:
             trades.append(
                 Trade(
@@ -185,7 +205,7 @@ class ExchangeClient:
                     exchange_ts_ms=int(t["timestamp"]),
                     local_ts_ms=local_ts,
                     price=float(t["price"]),
-                    qty=float(t["amount"]),
+                    qty=float(t["amount"]) * cs,
                     side=t.get("side") or "buy",
                     trade_id=str(t.get("id")) if t.get("id") is not None else None,
                 )

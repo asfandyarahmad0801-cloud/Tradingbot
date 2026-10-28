@@ -21,3 +21,4 @@ logs/
 .idea/
 .vscode/
 data/scanner_test/
+state/

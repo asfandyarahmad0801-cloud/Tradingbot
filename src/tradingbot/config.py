@@ -63,6 +63,23 @@ class RiskConfig(BaseModel):
     max_spread_bps: float = 8
     cooldown_seconds_after_loss: int = 300
     cooldown_seconds_after_exit: int = 60
+    # "risk_pct": size from risk_per_trade_pct and stop distance (default).
+    # "fixed_margin": every trade posts fixed_margin_usd at fixed_leverage.
+    sizing_mode: Literal["risk_pct", "fixed_margin"] = "risk_pct"
+    fixed_margin_usd: float = 10.0
+    fixed_leverage: float = 10.0
+    max_loss_per_trade_usd: float | None = None   # reject trades whose stop loss (+fees) would exceed this
+    max_total_loss_usd: float | None = None       # halt all new trading once equity falls this far below start
+
+
+class LearningConfig(BaseModel):
+    enabled: bool = True
+    memory_path: str = "state/setup_memory.json"
+    loss_streak_for_cooldown: int = 3
+    cooldown_minutes: int = 1440
+    min_trades_to_judge: int = 15
+    ban_t_threshold: float = -1.0
+    judge_window: int = 50
 
 
 class ExpectancyConfig(BaseModel):
@@ -76,6 +93,7 @@ class ExecutionConfig(BaseModel):
     max_market_order_slippage_bps: float = 10
     order_timeout_seconds: float = 5
     max_order_split_notional_usd: float = 20_000
+    paper_starting_balance: float = 10_000.0
 
 
 class MacroConfig(BaseModel):
@@ -111,6 +129,7 @@ class AppConfig(BaseModel):
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     macro: MacroConfig = Field(default_factory=MacroConfig)
     pump_dump: PumpDumpConfig = Field(default_factory=PumpDumpConfig)
+    learning: LearningConfig = Field(default_factory=LearningConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 

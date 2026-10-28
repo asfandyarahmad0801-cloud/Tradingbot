@@ -82,6 +82,39 @@ def compute_position_size(
     )
 
 
+def compute_fixed_margin_size(
+    margin_usd: float,
+    leverage: float,
+    entry_price: float,
+    stop_price: float,
+    spec: ContractSpec,
+    available_equity: float,
+    round_trip_cost_bps: float,
+    max_loss_per_trade_usd: float | None = None,
+) -> PositionSizeResult:
+    """Fixed-margin sizing: notional = margin x leverage, regardless of stop
+    distance. The stop still bounds the loss, so the trade is rejected when
+    the loss at the stop (plus round-trip costs) exceeds `max_loss_per_trade_usd`
+    -- a wide stop at 10x would otherwise risk far more than intended."""
+    stop_distance = abs(entry_price - stop_price)
+    if stop_distance <= 0 or entry_price <= 0 or leverage <= 0:
+        return PositionSizeResult(0.0, 0.0, 0.0, 0.0, True, ("invalid_entry_stop_or_leverage",))
+    if margin_usd > available_equity:
+        return PositionSizeResult(0.0, 0.0, 0.0, 0.0, True, (f"insufficient_equity_for_margin:{available_equity:.2f}<{margin_usd}",))
+    qty = margin_usd * leverage / entry_price
+    qty = _round_down_to_step(qty, spec.lot_size) if spec.lot_size > 0 else qty
+    if qty < spec.min_order_qty:
+        return PositionSizeResult(0.0, 0.0, 0.0, 0.0, True, (f"qty_below_min_order_qty:{qty}<{spec.min_order_qty}",))
+    notional = qty * entry_price
+    if notional < spec.min_notional:
+        return PositionSizeResult(0.0, 0.0, 0.0, 0.0, True, (f"notional_below_min_notional:{notional:.2f}<{spec.min_notional}",))
+    loss_at_stop = qty * stop_distance + notional * round_trip_cost_bps / 10_000
+    if max_loss_per_trade_usd is not None and loss_at_stop > max_loss_per_trade_usd:
+        return PositionSizeResult(0.0, 0.0, 0.0, loss_at_stop, True,
+                                  (f"loss_at_stop_exceeds_cap:{loss_at_stop:.2f}>{max_loss_per_trade_usd}usd",))
+    return PositionSizeResult(qty, notional, notional / leverage, loss_at_stop, False)
+
+
 def worst_case_loss_with_slippage(
     qty: float,
     entry_price: float,

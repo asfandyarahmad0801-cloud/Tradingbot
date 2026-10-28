@@ -134,7 +134,9 @@ async def _run_paper_or_live(config, mode: str, confirm_live: bool) -> None:
         if mode == "live":
             broker = LiveBroker(client, confirm_live=confirm_live)
         else:
-            broker = PaperBroker(client, specs_by_symbol)
+            from tradingbot.execution.paper_broker import PaperBrokerConfig
+            broker = PaperBroker(client, specs_by_symbol,
+                                 PaperBrokerConfig(starting_balance=config.execution.paper_starting_balance))
 
         scanner = Scanner(config, client, default_setups(), RiskEngine(config.risk), broker, repository, mode)
         await scanner.run_forever()
