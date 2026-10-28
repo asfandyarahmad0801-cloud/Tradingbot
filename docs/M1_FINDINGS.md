@@ -89,3 +89,27 @@ Credible next directions, ranked:
   re-running `scripts/run_research.py` on this commit reproduces them exactly.
 - Binance live endpoints are geo-blocked (HTTP 451) from this environment;
   paper trading (Stage 8) will need OKX or Hyperliquid and re-validation there.
+
+## Round 2 (pre-registered after M1) — `research/R2_RESULTS.md`
+
+Both cost-reduction routes failed in discovery, so validation/test stay untouched.
+
+| Variant | n | gross bps | net bps | p(random) |
+|---|---|---|---|---|
+| H09 composite k=1.5, taker | 2152 | +9.2 | −3.6 | 0.009 |
+| H09 composite k=1.5, limit entry | 1929 | −1.1 | −9.3 | 0.30 |
+| H09 composite k=2.0, taker | 1006 | +2.2 | −10.6 | 0.35 |
+| H10 H07 with limit entry | 942 | −0.7 | −9.0 | 0.28 |
+| H10 H02 with limit entry | 592 | −0.6 | −8.5 | 0.20 |
+
+* **Passive entry destroys the edge.** H07's +13.7 bps gross with taker entry
+  becomes −0.7 bps with a limit 5 bps through the market: orders fill almost
+  only when the move continues. This is adverse selection, measured. The
+  "maker bound" in round 1 was therefore far too optimistic, as warned.
+* **Combining signals did not amplify them.** The composite carries real timing
+  information (p = 0.009) but less per trade (9.2 bps) than H07 alone — the
+  components largely describe the same events.
+
+Conclusion after 62 variants: on public 1m/5m Binance data for liquid perps,
+the predictable component at 1–24h horizons is smaller than retail-tier
+trading costs. No strategy is approved for paper or live trading.
