@@ -47,7 +47,7 @@ risk:
   max_weekly_loss_pct: 5.0
   max_portfolio_exposure_pct: 30.0   # sum of notional / equity
   max_effective_account_leverage: 3.0
-  max_position_leverage: 5.0
+  max_position_leverage: 4.0
   max_concurrent_positions: 4
   max_positions_per_coin: 1
   max_correlated_cluster_exposure_pct: 12.0
