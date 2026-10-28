@@ -1,0 +1,628 @@
+[
+ {
+  "name": "BTCUSDT perp 1m klines",
+  "rows": 1971360,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 257,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "BTCUSDT premium 1m",
+  "rows": 1968464,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 2896,
+  "largest_gap_ms": 86460000,
+  "gap_list": [
+   [
+    1677196740000,
+    86460000
+   ],
+   [
+    1782691140000,
+    86460000
+   ],
+   [
+    1699588680000,
+    660000
+   ],
+   [
+    1699587420000,
+    300000
+   ],
+   [
+    1723456860000,
+    180000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 0.9985309633958283,
+  "ok": false
+ },
+ {
+  "name": "BTCUSDT funding",
+  "rows": 4107,
+  "start_ms": 1672531200000,
+  "end_ms": 1790784000002,
+  "expected_step_ms": null,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "BTCUSDT metrics 5m",
+  "rows": 394139,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812500000,
+  "expected_step_ms": 300000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 133,
+  "largest_gap_ms": 37800000,
+  "gap_list": [
+   [
+    1708090200000,
+    37800000
+   ],
+   [
+    1694507700000,
+    1200000
+   ],
+   [
+    1756448100000,
+    1200000
+   ],
+   [
+    1730132400000,
+    900000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 168,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.02,
+  "coverage": 0.999662669426183,
+  "ok": true
+ },
+ {
+  "name": "ETHUSDT perp 1m klines",
+  "rows": 1971360,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 290,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "ETHUSDT premium 1m",
+  "rows": 1968464,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 2896,
+  "largest_gap_ms": 86460000,
+  "gap_list": [
+   [
+    1680998340000,
+    86460000
+   ],
+   [
+    1782691140000,
+    86460000
+   ],
+   [
+    1699588680000,
+    660000
+   ],
+   [
+    1699587420000,
+    300000
+   ],
+   [
+    1723456860000,
+    180000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 0.9985309633958283,
+  "ok": false
+ },
+ {
+  "name": "ETHUSDT funding",
+  "rows": 4107,
+  "start_ms": 1672531200000,
+  "end_ms": 1790784000002,
+  "expected_step_ms": null,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "ETHUSDT metrics 5m",
+  "rows": 394139,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812500000,
+  "expected_step_ms": 300000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 133,
+  "largest_gap_ms": 37800000,
+  "gap_list": [
+   [
+    1708090200000,
+    37800000
+   ],
+   [
+    1694507700000,
+    1200000
+   ],
+   [
+    1756448100000,
+    1200000
+   ],
+   [
+    1730132400000,
+    900000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 174,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.02,
+  "coverage": 0.999662669426183,
+  "ok": true
+ },
+ {
+  "name": "SOLUSDT perp 1m klines",
+  "rows": 1971360,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 203,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "SOLUSDT premium 1m",
+  "rows": 1968464,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 2896,
+  "largest_gap_ms": 86460000,
+  "gap_list": [
+   [
+    1680998340000,
+    86460000
+   ],
+   [
+    1782691140000,
+    86460000
+   ],
+   [
+    1699588680000,
+    660000
+   ],
+   [
+    1699587420000,
+    300000
+   ],
+   [
+    1723456860000,
+    180000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 0.9985309633958283,
+  "ok": false
+ },
+ {
+  "name": "SOLUSDT funding",
+  "rows": 4107,
+  "start_ms": 1672531200000,
+  "end_ms": 1790784000002,
+  "expected_step_ms": null,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "SOLUSDT metrics 5m",
+  "rows": 394122,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812500000,
+  "expected_step_ms": 300000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 150,
+  "largest_gap_ms": 37800000,
+  "gap_list": [
+   [
+    1708090200000,
+    37800000
+   ],
+   [
+    1702422900000,
+    2700000
+   ],
+   [
+    1702077600000,
+    2400000
+   ],
+   [
+    1694507700000,
+    1200000
+   ],
+   [
+    1756448100000,
+    1200000
+   ],
+   [
+    1730132400000,
+    900000
+   ],
+   [
+    1702338900000,
+    600000
+   ],
+   [
+    1701993300000,
+    600000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 176,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.02,
+  "coverage": 0.9996195519844169,
+  "ok": true
+ },
+ {
+  "name": "XRPUSDT perp 1m klines",
+  "rows": 1971360,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 1,
+  "nan_values": 0,
+  "return_outliers": 509,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": false
+ },
+ {
+  "name": "XRPUSDT premium 1m",
+  "rows": 1968464,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 2896,
+  "largest_gap_ms": 86460000,
+  "gap_list": [
+   [
+    1680998340000,
+    86460000
+   ],
+   [
+    1782691140000,
+    86460000
+   ],
+   [
+    1699588680000,
+    660000
+   ],
+   [
+    1699587420000,
+    300000
+   ],
+   [
+    1723456860000,
+    180000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 0.9985309633958283,
+  "ok": false
+ },
+ {
+  "name": "XRPUSDT funding",
+  "rows": 4107,
+  "start_ms": 1672531200000,
+  "end_ms": 1790784000002,
+  "expected_step_ms": null,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "XRPUSDT metrics 5m",
+  "rows": 394139,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812500000,
+  "expected_step_ms": 300000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 133,
+  "largest_gap_ms": 37800000,
+  "gap_list": [
+   [
+    1708090200000,
+    37800000
+   ],
+   [
+    1694507700000,
+    1200000
+   ],
+   [
+    1756448100000,
+    1200000
+   ],
+   [
+    1730132400000,
+    900000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 179,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.02,
+  "coverage": 0.999662669426183,
+  "ok": true
+ },
+ {
+  "name": "DOGEUSDT perp 1m klines",
+  "rows": 1971360,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 363,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "DOGEUSDT premium 1m",
+  "rows": 1968464,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812740000,
+  "expected_step_ms": 60000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 2896,
+  "largest_gap_ms": 86460000,
+  "gap_list": [
+   [
+    1680998340000,
+    86460000
+   ],
+   [
+    1782691140000,
+    86460000
+   ],
+   [
+    1699588680000,
+    660000
+   ],
+   [
+    1699587420000,
+    300000
+   ],
+   [
+    1723456860000,
+    180000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 0.9985309633958283,
+  "ok": false
+ },
+ {
+  "name": "DOGEUSDT funding",
+  "rows": 4107,
+  "start_ms": 1672531200000,
+  "end_ms": 1790784000002,
+  "expected_step_ms": null,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 0,
+  "largest_gap_ms": 0,
+  "gap_list": [],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 0,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.001,
+  "coverage": 1.0,
+  "ok": true
+ },
+ {
+  "name": "DOGEUSDT metrics 5m",
+  "rows": 394139,
+  "start_ms": 1672531200000,
+  "end_ms": 1790812500000,
+  "expected_step_ms": 300000,
+  "duplicates": 0,
+  "non_monotonic": 0,
+  "missing_steps": 133,
+  "largest_gap_ms": 37800000,
+  "gap_list": [
+   [
+    1708090200000,
+    37800000
+   ],
+   [
+    1694507700000,
+    1200000
+   ],
+   [
+    1756448100000,
+    1200000
+   ],
+   [
+    1730132400000,
+    900000
+   ]
+  ],
+  "ohlc_violations": 0,
+  "non_positive_prices": 0,
+  "negative_volume": 0,
+  "taker_exceeds_volume": 0,
+  "nan_values": 176,
+  "return_outliers": 0,
+  "max_missing_fraction": 0.02,
+  "coverage": 0.999662669426183,
+  "ok": true
+ }
+]

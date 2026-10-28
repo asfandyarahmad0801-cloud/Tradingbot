@@ -30,6 +30,25 @@ before trusting any of it with real capital.
 
 See `docs/ARCHITECTURE.md` for the full pipeline diagram and rationale.
 
+## Research layer: Market Inefficiency Discovery Engine (start here)
+
+Before any setup in this repo is trusted, it has to survive the research
+protocol in `src/tradingbot/research/` on real data. See
+`docs/RESEARCH_PLAN.md` (architecture, data availability, methodology,
+risks) and `docs/M1_FINDINGS.md` (what the first run found).
+
+```bash
+# 1. Real, checksum-verified history from Binance's public archive (~0.9 GB)
+python scripts/fetch_research_data.py --out data/raw
+# 2. Pre-registered discovery -> validation -> locked-test protocol
+python scripts/run_research.py --data data/raw --out research
+```
+
+Outputs: `research/M1_RESULTS.md` (report), `research/registry.jsonl`
+(append-only log of every variant tested, including failures),
+`research/data_quality.json`.
+
+
 ## Folder structure
 
 ```
